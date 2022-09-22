@@ -2,6 +2,7 @@ import torch
 from torch.optim.optimizer import Optimizer, required
 from copy import deepcopy
 import numpy as np
+import logging
 
 
 class SR2optim(Optimizer):
@@ -11,7 +12,8 @@ class SR2optim(Optimizer):
             parameter groups
     """
 
-    def __init__(self, params, nu1=1e-4, nu2=0.9, g1=1.5, g3=0.5, lmbda=0.001, sigma=0.75, weight_decay=0.2):
+    def __init__(self, params, nu1=1e-4, nu2=0.9, g1=1.5, g3=0.5, lmbda=0.001, sigma=0.75, weight_decay=0.2,
+                 beta=0.9):
         
         if not 0.0 <= nu1 <= nu2 < 1.0:
             raise ValueError("Invalid parameter: 0 <= {} <= {} < 1".format(nu1, nu2))
@@ -23,6 +25,9 @@ class SR2optim(Optimizer):
         self.successful_steps = 0
         self.failed_steps = 0
         self.stop_counter = 0
+        self.beta = beta
+        
+        logging.basicConfig(level=logging.DEBUG)
         defaults = dict(nu1=nu1, nu2=nu2, g1=g1, g3=g3, lmbda=lmbda, sigma=sigma, weight_decay=weight_decay)
         super(SR2optim, self).__init__(params, defaults)
 
@@ -57,8 +62,6 @@ class SR2optim(Optimizer):
 
         # load parameters
         group = self.param_groups[0]
-        sigma = group['sigma']
-        lmbda = group['lmbda']
 
         loss = None
         h_x = None
@@ -67,7 +70,7 @@ class SR2optim(Optimizer):
 
         loss.backward()
         f_x = loss.item()
-        h_x *= lmbda
+        h_x *= group['lmbda']
         current_obj = f_x + h_x
         l = h_x
 
@@ -91,9 +94,14 @@ class SR2optim(Optimizer):
             state = self.state[x]
             if len(state) == 0:
                 state['s'] = torch.zeros_like(x.data)
+                state['vt'] = torch.zeros_like(grad)
+                
+            # Direction with momentum
+            state['vt'].mul_(self.beta).add_(1-self.beta, grad)
+            flat_v = state['vt'].view(-1)
 
             # Compute the step s
-            state['s'].data = self.get_step(x, grad, sigma, lmbda)
+            state['s'].data = self.get_step(x, state['vt'], sigma, group['lmbda'])
             norm_s += torch.sum(torch.square(state['s'])).item()
 
             # phi(x+s) ~= f(x) + grad^T * s
@@ -102,43 +110,56 @@ class SR2optim(Optimizer):
             gts += torch.dot(flat_g, flat_s).item()
 
             # Update the weights
-            self.update_weights(x, state['s'], grad, sigma)
+            self.update_weights(x, state['s'], state['vt'], group['sigma'])
 
 
         phi_x += gts
         # f(x+s), h(x+s)
         fxs, hxs = closure()
-        hxs *= lmbda
+        hxs *= group['lmbda']
 
         # Rho
         rho = current_obj - (fxs.item() + hxs)
         delta_model= current_obj - (phi_x + hxs)
-        
-        if delta_model == 0:
+    
+        if delta_model  < -1e-4:
+            logging.error('denominator is negatif {} '.format(delta_model))
+            logging.info('current_objectif = {} '.format(current_obj))
+            logging.info('phi = {} '.format(phi_x))
+            logging.info('h(x+s) = {} '.format(hxs))
+            stop = True
+            do_updates = False
+            rho = np.NAN 
+
+        elif -1e-4 <= delta_model <= 0:
             rho = 0
             self.stop_counter += 1
+            logging.info('denominator of rho is slightly negatif  {} '.format(delta_model))
+            do_updates = False
         else:
-            rho /= delta_model
+            rho = (current_obj - fxs - hxs) / delta_model
             self.stop_counter = 0
-
+            
         if self.stop_counter > 30:
             stop = True
 
         # Updates
-        if rho >= self.param_groups[0]['nu1']:
-            loss = fxs
-            l = hxs
-            loss.backward()
-            self.successful_steps += 1
-        else:
-            # Reject the step
-            self._load_params(current_params)
-            group['sigma'] *= group['g1']
-            self.failed_steps += 1
-            print('> Failed step')
+        if do_updates:
+            if rho >= self.param_groups[0]['nu1']:
+                logging.debug('step accepted')
+                loss = fxs
+                l = hxs
+                loss.backward()
+                self.successful_steps += 1
+            else:
+                # Reject the step
+                logging.debug('step rejected')
+                self._load_params(current_params)
+                group['sigma'] *= group['g1']
+                self.failed_steps += 1
 
-        if rho >= self.param_groups[0]['nu2']:
-            group['sigma'] *= group['g3']
+            if rho >= self.param_groups[0]['nu2']:
+                group['sigma'] *= group['g3']
 
         return loss, l, norm_s, group['sigma'], rho, stop
 
@@ -203,3 +224,23 @@ class SR2optiml23(SR2optim):
             x.data.add_(- grad / sigma)
         return x
 
+
+class SR2optiml12(SR2optim):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def get_step(self, x, grad, Dt, lmbda):
+        Dt_vt = torch.mul(torch.pow(Dt, -1), grad)
+        X = x.data - Dt_vt 
+        p = 54**(1/3)/4 * (2 * lmbda * torch.pow(Dt, -1))**(2/3)
+        a = torch.abs(X)
+        phi = torch.arccos(lmbda * torch.pow(Dt, -1)/4 * (a/3)**(-3/2))
+        s = 2/3 * a * (1 + torch.cos(2 * torch.pi /3 - 2/3 * phi ))
+        
+        step = torch.where(X > p, s - x.data, 
+                           torch.where(X <  -p, -s - x.data, -x.data))
+        return step
+
+    def update_weights(self, x, step, grad, sigma):
+        x.data = x.data.add_(step.data)
+        return x
