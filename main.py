@@ -171,7 +171,9 @@ model = ResNet34()
 model.to(device)
 
 print('==> Computing sigma_0..')
-sigma = get_sigma0(model)
+# sigma = get_sigma0(model)
+sigma = 41          # works better with R34
+
 
 # Initialize the optimizer with the given parameters optimizer
 if args.reg == 'l1':
