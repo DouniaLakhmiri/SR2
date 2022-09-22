@@ -81,6 +81,7 @@ class SR2optim(Optimizer):
         phi_x = f_x
         gts = 0
         stop = False
+        do_updates = True
 
         for x in group['params']:
             if x.grad is None:
@@ -101,7 +102,7 @@ class SR2optim(Optimizer):
             flat_v = state['vt'].view(-1)
 
             # Compute the step s
-            state['s'].data = self.get_step(x, state['vt'], sigma, group['lmbda'])
+            state['s'].data = self.get_step(x, state['vt'], group['sigma'], group['lmbda'])
             norm_s += torch.sum(torch.square(state['s'])).item()
 
             # phi(x+s) ~= f(x) + grad^T * s
