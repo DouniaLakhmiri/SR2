@@ -121,10 +121,9 @@ parser.add_argument('--max_epochs', type=int, default=300, help="maximum epochs"
 parser.add_argument('--eta1', type=float, default=0.00075, help="eta 1 in SR2")
 parser.add_argument('--eta2', type=float, default=0.999, help="eta 2 in SR2")
 parser.add_argument('--g1', type=float, default=5.57, help="gamma 1 in SR2")
-parser.add_argument('--g2', type=float, default=2.95, help="gamma 2 in SR2")
 parser.add_argument('--g3', type=float, default=0.79, help="gamma 3 in SR2")
 parser.add_argument('--wd', type=float, default=0.02, help="weight decay")
-parser.add_argument('--beta', type=float, default=0.9, help"momentum coeff")
+parser.add_argument('--beta', type=float, default=0.9, help="momentum coeff")
 parser.add_argument('--seed', type=int, default=1, help="random seed")
 
 args = parser.parse_args()
@@ -175,16 +174,16 @@ sigma = get_sigma0(model)
 
 # Initialize the optimizer with the given parameters optimizer
 if args.reg == 'l1':
-    optimizer = SR2optiml1(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g2=args.g2, g3=args.g3,
+    optimizer = SR2optiml1(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
 elif args.reg == 'l0':
-    optimizer = SR2optiml0(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g2=args.g2, g3=args.g3,
+    optimizer = SR2optiml0(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)   
 elif args.reg == 'l12':
-    optimizer = SR2optiml12(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g2=args.g2, g3=args.g3,
+    optimizer = SR2optiml12(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
 elif args.reg == 'l23':
-    optimizer = SR2optiml23(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g2=args.g2, g3=args.g3,
+    optimizer = SR2optiml23(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
 else:
     print('>> Regularization term not supported')
