@@ -64,7 +64,7 @@ def train(epoch):
                         laccum += l23.item()            
             return loss_f, laccum
 
-        loss, reg, norm_s, xi, sigma, rho, criteria, stop = optimizer.step(closure=closure)
+        loss, reg, norm_s, sigma, rho, stop = optimizer.step(closure=closure)
 
         if stop:
             print(' >> Stopping criteria activated')
@@ -76,14 +76,15 @@ def train(epoch):
         current_obj = loss.item() + reg
         Fs.append(current_obj)
 
-        if batch_id % 20 == 0:
+        if batch_id % 50 == 0:
             print(
                 'Train Epoch: {} [{}/{} ({:.0f}%)]\t f: {:e}\t h: {:e}\t '
                 'f+h: {:e}\t ||s||: {:e}'
-                '\t sigma: {:e} \t rho:  {:e}, \t Assp {:e}'.format(
+                '\t sigma: {:e} \t rho:  {:e}'.format(
                     epoch + 1, batch_id * len(inputs), len(train_data.dataset),
                     100. * batch_id / len(train_data), loss.item(), reg, current_obj, norm_s, sigma,
-                    rho, criteria))
+                    rho))
+
 
         if stop:
             print(' >> Stopping criteria activated')
