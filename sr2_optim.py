@@ -111,7 +111,8 @@ class SR2optim(Optimizer):
             gts += torch.dot(flat_g, flat_s).item()
 
             # Update the weights
-            self.update_weights(x, state['s'], state['vt'], group['sigma'])
+            # self.update_weights(x, state['s'], state['vt'], group['sigma'])
+            x.data = x.data.add_(state['s'].data)
 
 
         phi_x += gts
