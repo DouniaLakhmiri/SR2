@@ -231,18 +231,17 @@ class SR2optiml12(SR2optim):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def get_step(self, x, grad, Dt, lmbda):
-        Dt_vt = torch.mul(torch.pow(Dt, -1), grad)
-        X = x.data - Dt_vt 
-        p = 54**(1/3)/4 * (2 * lmbda * torch.pow(Dt, -1))**(2/3)
+    def get_step(self, x, vt, sigma, lmbda):
+        X = x.data - vt/sigma
+        p = 54**(1/3)/4 * (2 * lmbda/sigma)**(2/3)
         a = torch.abs(X)
-        phi = torch.arccos(lmbda * torch.pow(Dt, -1)/4 * (a/3)**(-3/2))
+        phi = torch.arccos(lmbda /(4 * sigma) * (a/3)**(-3/2))
         s = 2/3 * a * (1 + torch.cos(2 * torch.pi /3 - 2/3 * phi ))
-        
-        step = torch.where(X > p, s - x.data, 
+
+        step = torch.where(X > p, s - x.data,
                            torch.where(X <  -p, -s - x.data, -x.data))
         return step
-
+    
     def update_weights(self, x, step, grad, sigma):
         x.data = x.data.add_(step.data)
         return x
