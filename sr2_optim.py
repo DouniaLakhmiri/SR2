@@ -83,7 +83,7 @@ class SR2optim(Optimizer):
     def update_B(self, q):
         i = 0
         for param in self.param_groups[0]['params']:
-            self.B[i] = torch.add(torch.add(self.B[i], -1), self.A[i], alpha=q, out=self.B[i])  
+            self.B[i].data = torch.add(torch.add(self.B[i.data], -1), self.A[i].data, alpha=q, out=self.B[i].data)  
             i += 1
 
 
@@ -136,7 +136,6 @@ class SR2optim(Optimizer):
                 state['s'] = torch.zeros_like(x.data)
                 state['vt'] = torch.zeros_like(grad)
                 # state['precond'] = torch.zeros_like(x.data)
-                # self.initialize_A_B()
 
             # Direction with momentum
             state['vt'].mul_(self.beta).add_(1-self.beta, grad)
@@ -151,9 +150,9 @@ class SR2optim(Optimizer):
             
             # Compute the step s
             state['s'].data = self.get_step(x, state['vt'], denom, group['lmbda'])
-            self.A[i] = torch.pow(state['s'].data, 2)
-            self.trA2 += torch.sum(torch.pow(state['s'].data, 4))
-            norm_s += torch.sum(torch.square(state['s'])).item()
+            self.A[i].data = torch.pow(state['s'].data, 2)
+            self.trA2 += torch.sum(torch.pow(state['s'].data, 4)).item()
+            norm_s += torch.sum(torch.square(state['s'].data)).item()
             norm_s_sq += norm_s ** 2
             # sT_B_s += torch.dot(flat_s.data , torch.mul(denom.view(-1),flat_s.data)).item() 
 
