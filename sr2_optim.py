@@ -33,6 +33,7 @@ class SR2optim(Optimizer):
 
         defaults = dict(nu1=nu1, nu2=nu2, g1=g1, g3=g3, lmbda=lmbda, sigma=sigma, weight_decay=weight_decay)
         super(SR2optim, self).__init__(params, defaults)
+        self.initialize_A_B()
 
 
     def __setstate__(self, state):
@@ -120,7 +121,6 @@ class SR2optim(Optimizer):
         do_updates = True
         i = 0
         self.trA2 = 0
-        self.initialize_A_B()
 
         for x in group['params']:
             if x.grad is None:
