@@ -39,7 +39,7 @@ class SR2optim(Optimizer):
     def __setstate__(self, state):
         super(SR2optim, self).__setstate__(state)
 
-    def _copy_params(self):
+    def copy_params(self):
         current_params = []
         current_grads = []
         for param in self.param_groups[0]['params']:
@@ -47,16 +47,13 @@ class SR2optim(Optimizer):
             current_grads.append(deepcopy(param.grad.data))
         return current_params, current_grads
 
-    def _load_params(self, current_params):
+    def load_params(self, current_params):
         i = 0
         for param in self.param_groups[0]['params']:
             param.data[:] = current_params[i]
             i += 1
 
     def get_step(self, x, grad, sigma, lmbda):
-        raise NotImplementedError
-
-    def update_weights(self, x, step, grad, sigma):
         raise NotImplementedError
 
     def get_sTy(self):
@@ -110,7 +107,7 @@ class SR2optim(Optimizer):
         l = h_x
 
         # saving the parameters in case the step is rejected
-        self.current_params, self.current_grads = self._copy_params()
+        self.current_params, self.current_grads = self.copy_params()
 
         norm_s = 0
         norm_s_sq = 0
@@ -154,7 +151,6 @@ class SR2optim(Optimizer):
             self.trA2 += torch.sum(torch.pow(state['s'].data, 4)).item()
             norm_s += torch.sum(torch.square(state['s'].data)).item()
             norm_s_sq += norm_s ** 2
-            # sT_B_s += torch.dot(flat_s.data , torch.mul(denom.view(-1),flat_s.data)).item() 
 
             # phi(x+s) ~= f(x) + grad^T * s
             flat_g = grad.view(-1)
@@ -204,17 +200,18 @@ class SR2optim(Optimizer):
                 l = hxs
                 loss.backward()
                 self.successful_steps += 1
+                
                 # gather elements for B update
                 logging.debug('update B')
                 sT_y = self.get_sTy()
                 q = (sT_y + norm_s_sq - sT_B_s)/(self.trA2)
+                
                 # update B := B - I + q*A
                 self.update_B(q)
-                # torch.add(torch.add(self.B, -1), q, self.A, self.B)  
             else:
                 # Reject the step
                 logging.debug('step rejected')
-                self._load_params(current_params)
+                self.load_params(current_params)
                 group['sigma'] *= group['g1']
                 self.failed_steps += 1
 
@@ -233,29 +230,14 @@ class SR2optiml1(SR2optim):
                torch.max(-x.data + grad / denom - (lmbda / denom), torch.zeros_like(x.data)) - x.data
         return step
 
-    def update_weights(self, x, step, grad, sigma):
-        if len(x.data.shape) != 1:
-            x.data = x.data.add_(step.data)
-        else:
-            x.data.add_(- grad / sigma)
-        return x
-
 
 class SR2optiml0(SR2optim):
     def __init__(self,  *args, **kwargs):
         super().__init__( *args, **kwargs)
-    
-    def get_step(self, x, grad, sigma, lmbda):
-        g_over_sigma = grad / sigma
-        step = torch.where(torch.abs(x.data - g_over_sigma) >= np.sqrt(2 * lmbda / sigma),
-                           -g_over_sigma, -x.data)
+
+    def get_step(self, x, grad, denom, lmbda):
+        g_over_denom = grad / denom
+        step = torch.where(torch.abs(x.data - g_over_denom) >= torch.sqrt(2 * lmbda / denom),
+                           -g_over_denom, -x.data)
         return step
 
-    def update_weights(self, x, step, grad, sigma):
-        g_over_sigma = grad / sigma
-        if len(x.data.shape) == 2 or len(x.data.shape) == 4:
-            x.data = x.data.add_(step.data)
-        else:
-            x.data.add_(- g_over_sigma)
-        return x
-    
