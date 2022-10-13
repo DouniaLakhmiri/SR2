@@ -240,4 +240,38 @@ class SR2optiml0(SR2optim):
         step = torch.where(torch.abs(x.data - g_over_denom) >= torch.sqrt(2 * lmbda / denom),
                            -g_over_denom, -x.data)
         return step
+    
+class SR2optiml12(SR2optim):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def get_step(self, x, vt, denom, lmbda):
+        X = x.data - vt/denom
+        p = 54 ** (1/3) / 4 * (2 * lmbda/denom) ** (2/3)
+        a = torch.abs(X)
+        phi = torch.arccos(lmbda /(4 * denom) * (a/3)**(-3/2))
+        s = 2/3 * a * (1 + torch.cos(2 * torch.pi /3 - 2/3 * phi ))
+
+        step = torch.where(X > p, s - x.data,
+                           torch.where(X <  -p, -s - x.data, -x.data))
+        return step
+
+
+
+class SR2optiml23(SR2optim):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def get_step(self, x, grad, denom, lmbda):
+        g_over_denom = grad / denom
+        X = x.data - g_over_denom
+        L = 2 * lmbda/denom
+        phi = torch.arccosh(27/16 * (X**2) * (L**(-3/2)))
+        A = 2/np.sqrt(3) * L**(1/4) * (torch.cosh(phi/3)) ** (1/2)
+        cond = 2/3 * (3 * L**3)**(1/4)
+        s = ((A + ((2 * torch.abs(X))/A - A ** 2) ** (1/2)) / 2) ** 3
+
+        step = torch.where(X > cond, s - x.data,
+                           torch.where(X <  -cond, -s - x.data, -x.data))
+        return step
 
