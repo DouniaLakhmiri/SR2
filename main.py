@@ -161,11 +161,11 @@ test_loader = torch.utils.data.DataLoader(datasets.CIFAR10(root='dataset', train
                                           batch_size=100, num_workers=4, shuffle=False)
 
 print('==> Building model..')
-# model = models.densenet121(n_classes=10)          # for CIFAR-10
+# model = models.densenet121(num_classes=10)          # for CIFAR-10
 
 model = ResNet34()
 
-# model = models.densenet201(n_classes=100)         # for CIFAR-100
+# model = models.densenet201(num_classes=100)         # for CIFAR-100
 
 model.to(device)
 
