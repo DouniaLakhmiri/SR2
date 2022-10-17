@@ -61,7 +61,7 @@ def train(epoch):
                         laccum += l12.item()
                     elif args.reg == 'l23':
                         l23 = torch.sum((torch.abs(m.weight) + 1e-6).pow(2 / 3))
-                        laccum += l23.item()            
+                        laccum += l23.item()
             return loss_f, laccum
 
         loss, reg, norm_s, sigma, rho, stop = optimizer.step(closure=closure)
@@ -126,6 +126,7 @@ parser.add_argument('--g3', type=float, default=0.79, help="gamma 3 in SR2")
 parser.add_argument('--wd', type=float, default=0.02, help="weight decay")
 parser.add_argument('--beta', type=float, default=0.9, help="momentum coeff")
 parser.add_argument('--seed', type=int, default=1, help="random seed")
+parser.add_argument('--precond', default='andrei', help="Preconditioner: none, Adam, Andrei")
 
 args = parser.parse_args()
 
@@ -160,52 +161,65 @@ test_loader = torch.utils.data.DataLoader(datasets.CIFAR10(root='dataset', train
                                           batch_size=100, num_workers=4, shuffle=False)
 
 print('==> Building model..')
-# model = models.densenet121()
-# model.fc = nn.Linear(1024, 10)      # for CIFAR10
+model = models.densenet121(num_classes=10)          # for CIFAR-10
 
-model = ResNet34()
+# model = ResNet34()
 
-# model = models.densenet201()
-# model.fc = nn.Linear(1024, 100)   # for CIFAR100
+# model = models.densenet201(n_classes=100)         # for CIFAR-100
 
 model.to(device)
 
 print('==> Computing sigma_0..')
-# sigma = get_sigma0(model)
-sigma = 41          # works better with R34
+sigma = get_sigma0(model)
+# sigma = 41          # works better with R34
 
 
 # Initialize the optimizer with the given parameters optimizer
-if args.reg == 'l1':
-    optimizer = SR2optiml1(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+if args.precond == 'andrei':
+    if args.reg == 'l0':
+        optimizer = SR2optimAndreil0(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
-elif args.reg == 'l0':
-    optimizer = SR2optiml0(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
-                           lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)   
-elif args.reg == 'l12':
-    optimizer = SR2optiml12(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+    elif args.reg == 'l1':
+        optimizer = SR2optimAndreil1(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
-elif args.reg == 'l23':
-    optimizer = SR2optiml23(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+    elif args.reg == 'l12':
+        optimizer = SR2optimAndreil12(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+                           lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
+    elif args.reg == 'l23':
+        optimizer = SR2optimAndreil23(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+                           lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
+
+elif args.precond == 'none':
+    if args.reg == 'l1':
+        optimizer = SR2optiml1(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+                           lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
+    elif args.reg == 'l0':
+        optimizer = SR2optiml0(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+                           lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
+    elif args.reg == 'l12':
+        optimizer = SR2optiml12(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+                           lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
+    elif args.reg == 'l23':
+        optimizer = SR2optiml23(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
 else:
     print('>> Regularization term not supported')
 
-test_accs = []
-training_losses = []
-l_loss = []
-run_id = 'sr2_r34'
+# test_accs = []
+# training_losses = []
+# l_loss = []
+# run_id = 'sr2_r34'
 
 # training
 for epoch in range(args.max_epochs):
     # train network
     loss, reg, stop = train(epoch)
-    training_losses.append(loss)
-    l_loss.append(reg)
+    # training_losses.append(loss)
+    # l_loss.append(reg)
 
     # test network
     acc_test = test()
-    test_accs.append(acc_test)
+    # test_accs.append(acc_test)
 
     if stop:
         break
@@ -213,7 +227,8 @@ for epoch in range(args.max_epochs):
 print('Successful steps: ', optimizer.successful_steps)
 print('Failed steps: ', optimizer.failed_steps)
 
-torch.save(model.state_dict(), "data/weight_final_" + run_id)
-np.save("data/loss_" + run_id, training_losses)
-np.save("data/L__" + run_id, l_loss)
-np.save("data/acc_" + run_id, test_accs)
+# torch.save(model.state_dict(), "data/weight_final_" + run_id)
+# np.save("data/loss_" + run_id, training_losses)
+# np.save("data/L__" + run_id, l_loss)
+# np.save("data/acc_" + run_id, test_accs)
+
