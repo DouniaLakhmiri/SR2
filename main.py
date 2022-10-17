@@ -161,17 +161,17 @@ test_loader = torch.utils.data.DataLoader(datasets.CIFAR10(root='dataset', train
                                           batch_size=100, num_workers=4, shuffle=False)
 
 print('==> Building model..')
-# model = models.densenet121(num_classes=10)          # for CIFAR-10
+model = models.densenet121(num_classes=10)          # for CIFAR-10
 
-model = ResNet34()
+# model = ResNet34()
 
-# model = models.densenet201(num_classes=100)         # for CIFAR-100
+# model = models.densenet201(n_classes=100)         # for CIFAR-100
 
 model.to(device)
 
 print('==> Computing sigma_0..')
-# sigma = get_sigma0(model)
-sigma = 41          # works better with R34
+sigma = get_sigma0(model)
+# sigma = 41          # works better with R34
 
 
 # Initialize the optimizer with the given parameters optimizer
@@ -231,3 +231,4 @@ print('Failed steps: ', optimizer.failed_steps)
 # np.save("data/loss_" + run_id, training_losses)
 # np.save("data/L__" + run_id, l_loss)
 # np.save("data/acc_" + run_id, test_accs)
+
