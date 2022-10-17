@@ -263,7 +263,7 @@ class SR2optimAndrei(SR2optim):
     def update_B(self, q):
         i = 0
         for param in self.param_groups[0]['params']:
-            self.B[i].data = torch.add(torch.add(self.B[i.data], -1), self.A[i].data, alpha=q, out=self.B[i].data)
+            self.B[i] = torch.add(torch.add(self.B[i], -1), self.A[i], alpha=q, out=self.B[i])
             i += 1
 
     def step(self, closure=None):
@@ -330,13 +330,12 @@ class SR2optimAndrei(SR2optim):
             # Compute the step s
             state['s'].data = self.get_step(x, state['vt'], denom, group['lmbda'])
 
-            self.A[i].data = torch.pow(state['s'].data, 2)
-            self.trA2 += torch.sum(torch.pow(state['s'].data, 4)).item()
-            norm_s += torch.sum(torch.square(state['s'].data)).item()
+            self.A[i] = torch.pow(state['s'].data, 2)
+            self.trA2 += torch.sum(torch.pow(state['s'].data, 4))
+            norm_s += torch.sum(torch.square(state['s'])).item()
             norm_s_sq += norm_s ** 2
 
             # phi(x+s) ~= f(x) + grad^T * s
-            # flat_g = grad.view(-1)
             flat_s = state['s'].view(-1)
             gts += torch.dot(flat_v, flat_s).item()
             sT_B_s += torch.dot(flat_s.data, torch.mul(denom.view(-1), flat_s.data)).item()
