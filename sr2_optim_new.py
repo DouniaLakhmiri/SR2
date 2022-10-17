@@ -403,21 +403,21 @@ class SR2optimAndrei(SR2optim):
         return loss, l, norm_s, group['sigma'], rho, stop
 
 
-class SR2OptimAndreil0(SR2optimAndrei, SR2optiml0):
+class SR2optimAndreil0(SR2optimAndrei, SR2optiml0):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         
-class SR2OptimAndreil1(SR2optimAndrei, SR2optiml1):
+class SR2optimAndreil1(SR2optimAndrei, SR2optiml1):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
 
-class SR2OptimAndreil12(SR2optimAndrei, SR2optiml12):
+class SR2optimAndreil12(SR2optimAndrei, SR2optiml12):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         
-class SR2OptimAndreil23(SR2optimAndrei, SR2optiml23):
+class SR2optimAndreil23(SR2optimAndrei, SR2optiml23):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
