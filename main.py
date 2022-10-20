@@ -227,7 +227,7 @@ for epoch in range(args.max_epochs):
 print('Successful steps: ', optimizer.successful_steps)
 print('Failed steps: ', optimizer.failed_steps)
 
-# torch.save(model.state_dict(), "data/weight_final_" + run_id)
+torch.save(model.state_dict(), "data/weight_final_" + run_id)
 # np.save("data/loss_" + run_id, training_losses)
 # np.save("data/L__" + run_id, l_loss)
 # np.save("data/acc_" + run_id, test_accs)
