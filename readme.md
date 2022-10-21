@@ -3,14 +3,17 @@
 
 <p align="center">
     <a href="PyTorch">
-    <img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white">
+    <img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white"> </a>
     <a href="Python">
-    <img src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54">
+    <img src="https://img.shields.io/pypi/pyversions/gym_simplifiedtetris?style=for-the-badge"> </a>
+    <a href="Licence">
+    <img src="https://img.shields.io/github/license/Ileriayo/markdown-badges?style=for-the-badge"> </a>
+    
 </p>
       
 <p align="center">
   <a href="#description">Description</a> •
-  <a href="#prerequisits">Prerequisits</a> •
+  <a href="#train-a-network">Train a network</a> •
   <a href="#results">Results</a> •
   <a href="#references">References</a>
 </p>
@@ -31,6 +34,8 @@ Supported regularizers are $\ell_p^p$ with $p \in {0, \frac{1}{2}, \frac{2}{3}, 
 - $||x||_0$ is the number of non zero $x_i$
 - $||x||_p = (\sum_i |x_i|^p)^{\frac{1}{p}}$ for $p = \frac{1}{2}, \frac{2}{3}, 1$
 
+---
+        
 ## Train a network
 
 ### Prerequisits
@@ -43,15 +48,27 @@ Supported regularizers are $\ell_p^p$ with $p \in {0, \frac{1}{2}, \frac{2}{3}, 
 You can start training the network by running a command similar to
 
 ```
-python main.py --reg=l0 --reg=andrei --beta=0.95 --lam=0.001
+python main.py --reg=l0 --precond=andrei --beta=0.95 --lam=0.001
 ```
 
-The following table gives a summary of the options and a brief description: 
+The following table gives a summary of the options and a brief description:
 
+  SR2 option     | Description | Possible values |
+| -------------  | ----------- | --------------- |
+| --lam | $\lambda$ in $\lambda \mathcal{R}(x)$| $\mathbb{R}$| 
+| --reg | Regularization function $\mathcal{R}(x)$| l0, l1, l12, l23 | 
+| --beta | Momentum factor| $[0, 1]$ | 
+| --precond | Choice of preconditioner to accelerate training| none, adam, andrei* | 
+| --max_epoch | Number of training epochs| $\mathbb{N}$ | 
+| --wd | Weight decay| $[0, 1]$ | 
+| --seed | Random seed| $\mathbb{N}$ | 
 
+---
+        
 ## Results
 
-
+--- 
+        
 ## References 
 
 ```
