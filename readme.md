@@ -6,10 +6,6 @@
     <img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white">
     <a href="Python">
     <img src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54">
-    <a href="Ubuntu">
-    <img src="https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge&logo=ubuntu&logoColor=white">
-    <a href="macOS">
-    <img src="https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=macos&logoColor=F0F0F0">
 </p>
       
 <p align="center">
@@ -31,14 +27,28 @@ $$ F(x) =f(x) + \lambda \mathcal{R}(x). $$
     
 with an adaptive proximal quadratic regularization scheme.
 
-Supported regularizers are $\ell_0$ and $\ell_1$.
+Supported regularizers are $\ell_p^p$ with $p \in {0, \frac{1}{2}, \frac{2}{3}, 1}$:
+- $||x||_0$ is the number of non zero $x_i$
+- $||x||_p = (\sum_i |x_i|^p)^{\frac{1}{p}}$ for $p = \frac{1}{2}, \frac{2}{3}, 1$
 
-## Prerequisits 
+## Train a network
+
+### Prerequisits
  - Numpy
  - Pytorch
  - PyHessian [https://github.com/amirgholami/PyHessian]
  
- 
+### Run SR2
+
+You can start training the network by running a command similar to
+
+```
+python main.py --reg=l0 --reg=andrei --beta=0.95 --lam=0.001
+```
+
+The following table gives a summary of the options and a brief description: 
+
+
 ## Results
 
 
