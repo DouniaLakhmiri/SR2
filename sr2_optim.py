@@ -184,20 +184,14 @@ class SR2optiml0(SR2optim):
 
     def get_step(self, x, grad, denom, lmbda):
         g_over_denom = grad / denom
-        step = torch.where(torch.abs(x.data - g_over_denom) >= np.sqrt(2 * lmbda / denom),
+        if torch.is_tensor(denom):
+            step = torch.where(torch.abs(x.data - g_over_denom) >= torch.sqrt(2 * lmbda / denom),
                            -g_over_denom, -x.data)
+        else:
+            step = torch.where(torch.abs(x.data - g_over_denom) >= np.sqrt(2 * lmbda / denom),
+                               -g_over_denom, -x.data)
         return step
-
-
-class SR2optiml0precond(SR2optim):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def get_step(self, x, grad, denom, lmbda):
-        g_over_denom = grad / denom
-        step = torch.where(torch.abs(x.data - g_over_denom) >= torch.sqrt(2 * lmbda / denom),
-                           -g_over_denom, -x.data)
-        return step
+    
 
 class SR2optiml12(SR2optim):
     def __init__(self, *args, **kwargs):
@@ -413,7 +407,7 @@ class SR2optimAndrei(SR2optim):
         return loss, l, norm_s, group['sigma'], rho, stop
 
 
-class SR2optimAndreil0(SR2optimAndrei, SR2optiml0precond):
+class SR2optimAndreil0(SR2optimAndrei, SR2optiml0):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
