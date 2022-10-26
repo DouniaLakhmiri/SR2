@@ -50,7 +50,7 @@ class SR2optim(Optimizer):
     def get_step(self, x, grad, sigma, lmbda):
         raise NotImplementedError
 
-    def update_weights(self, x, step, grad, sigma):
+    def get_denom(self):
         raise NotImplementedError
 
     def step(self, closure=None):
@@ -101,13 +101,17 @@ class SR2optim(Optimizer):
             state['vt'].mul_(self.beta).add_(1 - self.beta, grad)
             flat_v = state['vt'].view(-1)
 
+            # get denominator
+            # when no precond, denom = sigma
+            denom = self.get_denom()
+            
             # Adam preconditioner
             # state['precond'].mul_(0.9).addcmul_(1 - 0.9, grad, grad)          # exponential moving average precond
             # denom = state['precond'].sqrt() / (1 + 1e-6)   # sqrt had bias_correction 2
             # denom.add_(group['sigma'])
 
             # Compute the step s
-            state['s'].data = self.get_step(x, state['vt'], group['sigma'], group['lmbda'])  # replace sigma with denom
+            state['s'].data = self.get_step(x, state['vt'], denom, group['lmbda'])  # replace sigma with denom
             norm_s += torch.sum(torch.square(state['s'])).item()
 
             # phi(x+s) ~= f(x) + v^T * s
