@@ -304,10 +304,11 @@ class SR2optimAndrei(SR2optim):
         do_updates = True
         i = 0
 
+        # ----> Function initializations 
         self.trA2 = 0
-        norm_s = 0
-        norm_s_sq = 0
-        sT_B_s = 0
+        self.norm_s = 0
+        self.norm_s_sq = 0
+        self.sT_B_s = 0
 
         for x in group['params']:
             if x.grad is None:
@@ -322,7 +323,7 @@ class SR2optimAndrei(SR2optim):
             if len(state) == 0:
                 state['s'] = torch.zeros_like(x.data)
                 state['vt'] = torch.zeros_like(grad)
-                # state['precond'] = torch.zeros_like(x.data)
+                state['precond'] = torch.zeros_like(x.data)
 
             # Direction with momentum
             state['vt'].mul_(self.beta).add_(1 - self.beta, grad)
@@ -338,21 +339,23 @@ class SR2optimAndrei(SR2optim):
             # Compute the step s
             state['s'].data = self.get_step(x, state['vt'], denom, group['lmbda'])
 
-            self.A[i] = torch.pow(state['s'].data, 2)
-            self.trA2 += torch.sum(torch.pow(state['s'].data, 4))
-            norm_s += torch.sum(torch.square(state['s'])).item()
-            norm_s_sq += norm_s ** 2
-
             # phi(x+s) ~= f(x) + grad^T * s
             flat_s = state['s'].view(-1)
             gts += torch.dot(flat_v, flat_s).item()
-            sT_B_s += torch.dot(flat_s.data, torch.mul(denom.view(-1), flat_s.data)).item()
+            
+            # ----> Function cumulate elemets
+            self.A[i] = torch.pow(state['s'].data, 2)
+            self.trA2 += torch.sum(torch.pow(state['s'].data, 4))
+            self.norm_s += torch.sum(torch.square(state['s'])).item()
+            self.norm_s_sq += self.norm_s ** 2
+            self.sT_B_s += torch.dot(flat_s.data, torch.mul(denom.view(-1), flat_s.data)).item()
 
             # Update the weights
             x.data = x.data.add_(state['s'].data)
             i += 1
 
         phi_x += gts
+        
         # f(x+s), h(x+s)
         fxs, hxs = closure()
         hxs *= group['lmbda']
@@ -393,11 +396,11 @@ class SR2optimAndrei(SR2optim):
 
                 # gather elements for B update
                 logging.debug('update B')
+                # ----> Function update B
+                # self.update_B()
                 sT_y = self.get_sTy()
-                q = (sT_y + norm_s_sq - sT_B_s) / self.trA2
-
-                # update B := B - I + q*A
-                self.update_B(q)
+                q = (sT_y + self.norm_s_sq - self.sT_B_s) / self.trA2
+                self.update_B(q)    # update B := B - I + q*A
             else:
                 # Reject the step
                 logging.debug('step rejected')
@@ -408,7 +411,7 @@ class SR2optimAndrei(SR2optim):
             if rho >= self.param_groups[0]['nu2']:
                 group['sigma'] *= group['g3']
 
-        return loss, l, norm_s, group['sigma'], rho, stop
+        return loss, l, self.norm_s, group['sigma'], rho, stop
 
 
 class SR2optimAndreil0(SR2optimAndrei, SR2optiml0):
