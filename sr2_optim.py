@@ -52,17 +52,18 @@ class SR2optim(Optimizer):
     def get_step(self, x, grad, sigma, lmbda):
         raise NotImplementedError
 
-    def get_denom(self):
+    def get_denom(self, i, sigma):
         return self.sigma
-    
+
     def additional_initializations(self):
         pass
-    
-    def cumulate_elements(self):
+
+    def cumulate_elements(self, i, s_data, flat_s_data, denom):
         pass
-    
+
     def update_precond(self):
         pass
+
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -93,6 +94,7 @@ class SR2optim(Optimizer):
         gts = 0
         stop = False
         do_updates = True
+        i = 0
 
         self.additional_initializations()
         
@@ -116,7 +118,7 @@ class SR2optim(Optimizer):
             flat_v = state['vt'].view(-1)
 
             # get denominator
-            denom = self.get_denom()
+            denom = self.get_denom(i, self.sigma)
             
             # Adam preconditioner
             # state['precond'].mul_(0.9).addcmul_(1 - 0.9, grad, grad)          # exponential moving average precond
@@ -132,7 +134,7 @@ class SR2optim(Optimizer):
             gts += torch.dot(flat_v, flat_s).item()
             
             # Some versions of SR2 need additional elements
-            self.cumulate_elements()
+            self.cumulate_elements(i, state['s'].data, flat_s.data, denom)
 
             # Update the weights
             x.data = x.data.add_(state['s'].data)
@@ -175,7 +177,6 @@ class SR2optim(Optimizer):
                 l = hxs
                 loss.backward()
                 self.successful_steps += 1
-                
                 self.update_precond()
             else:
                 # Reject the step
@@ -259,7 +260,7 @@ class SR2optimAndrei(SR2optim):
         super().__init__(*args, **kwargs)
         self.initialize_A_B()
 
-    def copy_params(self):
+    def _copy_params(self):
         self.current_params = []
         self.current_grads = []
         for param in self.param_groups[0]['params']:
@@ -268,14 +269,14 @@ class SR2optimAndrei(SR2optim):
 
     def get_sTy(self):
         sTy = 0
-        i = 0
+        j = 0
         for param in self.param_groups[0]['params']:
-            s = param.data - self.current_params[i].data
-            y = param.grad.data - self.current_grads[i].data
+            s = param.data - self.current_params[j].data
+            y = param.grad.data - self.current_grads[j].data
             flat_s = s.view(-1)
             flat_y = y.view(-1)
             sTy += torch.dot(flat_s, flat_y).item()
-            i += 1
+            j += 1
         return sTy
 
     def initialize_A_B(self):
@@ -303,10 +304,10 @@ class SR2optimAndrei(SR2optim):
         q = (sT_y + self.norm_s_sq - self.sT_B_s) / self.trA2
         
         # update B := B - I + q*A
-        i = 0
+        k = 0
         for param in self.param_groups[0]['params']:
-            self.B[i] = torch.add(torch.add(self.B[i], -1), self.A[i], alpha=q, out=self.B[i])
-            i += 1
+            self.B[k] = torch.add(torch.add(self.B[k], -1), self.A[k], alpha=q, out=self.B[k])
+            k += 1
             
 
 
