@@ -54,16 +54,15 @@ class SR2optim(Optimizer):
 
     def get_denom(self, i, sigma):
         return self.sigma
-
+    
     def additional_initializations(self):
         pass
 
     def cumulate_elements(self, i, s_data, flat_s_data, denom):
         pass
-
+    
     def update_precond(self):
         pass
-
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -138,6 +137,7 @@ class SR2optim(Optimizer):
 
             # Update the weights
             x.data = x.data.add_(state['s'].data)
+            i += 1
 
         phi_x += gts
 
@@ -177,6 +177,7 @@ class SR2optim(Optimizer):
                 l = hxs
                 loss.backward()
                 self.successful_steps += 1
+                
                 self.update_precond()
             else:
                 # Reject the step
@@ -293,7 +294,7 @@ class SR2optimAndrei(SR2optim):
         self.norm_s_sq = 0
         self.sT_B_s = 0
         
-    def cumulate_elements(self, s_data, flat_s_data, denom):
+    def cumulate_elements(self, i, s_data, flat_s_data, denom):
         self.A[i] = torch.pow(s_data, 2)
         self.trA2 += torch.sum(torch.pow(s_data, 4))
         self.norm_s_sq += self.norm_s ** 2
@@ -329,4 +330,5 @@ class SR2optimAndreil12(SR2optimAndrei, SR2optiml12):
 class SR2optimAndreil23(SR2optimAndrei, SR2optiml23):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
 
