@@ -22,10 +22,12 @@ class SR2optim(Optimizer):
         if not 0 < g3 <= 1:
             raise ValueError("Invalid g3 value: {}".format(g3))
 
+        self.sigma = sigma
         self.successful_steps = 0
         self.failed_steps = 0
         self.stop_counter = 0
         self.beta = beta
+        self.norm_s = 0
         self.current_params = []
 
         logging.basicConfig(level=logging.INFO)
@@ -50,8 +52,17 @@ class SR2optim(Optimizer):
     def get_step(self, x, grad, sigma, lmbda):
         raise NotImplementedError
 
-    def update_weights(self, x, step, grad, sigma):
-        raise NotImplementedError
+    def get_denom(self, i, sigma):
+        return self.sigma
+    
+    def additional_initializations(self):
+        pass
+
+    def cumulate_elements(self, i, s_data, flat_s_data, denom):
+        pass
+    
+    def update_precond(self):
+        pass
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -77,12 +88,15 @@ class SR2optim(Optimizer):
         # saving the parameters in case the step is rejected
         self._copy_params()
 
-        norm_s = 0
+        self.norm_s = 0
         phi_x = f_x
         gts = 0
         stop = False
         do_updates = True
+        i = 0
 
+        self.additional_initializations()
+        
         for x in group['params']:
             if x.grad is None:
                 continue
@@ -96,26 +110,34 @@ class SR2optim(Optimizer):
             if len(state) == 0:
                 state['s'] = torch.zeros_like(x.data)
                 state['vt'] = torch.zeros_like(grad)
+                state['precond'] = torch.zeros_like(x.data)
 
             # Direction with momentum
             state['vt'].mul_(self.beta).add_(1 - self.beta, grad)
             flat_v = state['vt'].view(-1)
 
+            # get denominator
+            denom = self.get_denom(i, self.sigma)
+            
             # Adam preconditioner
             # state['precond'].mul_(0.9).addcmul_(1 - 0.9, grad, grad)          # exponential moving average precond
             # denom = state['precond'].sqrt() / (1 + 1e-6)   # sqrt had bias_correction 2
             # denom.add_(group['sigma'])
 
             # Compute the step s
-            state['s'].data = self.get_step(x, state['vt'], group['sigma'], group['lmbda'])  # replace sigma with denom
-            norm_s += torch.sum(torch.square(state['s'])).item()
+            state['s'].data = self.get_step(x, state['vt'], denom, group['lmbda'])  # replace sigma with denom
+            self.norm_s += torch.sum(torch.square(state['s'])).item()
 
             # phi(x+s) ~= f(x) + v^T * s
             flat_s = state['s'].view(-1)
             gts += torch.dot(flat_v, flat_s).item()
+            
+            # Some versions of SR2 need additional elements
+            self.cumulate_elements(i, state['s'].data, flat_s.data, denom)
 
             # Update the weights
             x.data = x.data.add_(state['s'].data)
+            i += 1
 
         phi_x += gts
 
@@ -155,17 +177,19 @@ class SR2optim(Optimizer):
                 l = hxs
                 loss.backward()
                 self.successful_steps += 1
+                
+                self.update_precond()
             else:
                 # Reject the step
                 logging.debug('step rejected')
                 self._load_params(self.current_params)
-                group['sigma'] *= group['g1']
+                self.sigma *= group['g1']
                 self.failed_steps += 1
 
             if rho >= self.param_groups[0]['nu2']:
-                group['sigma'] *= group['g3']
+                self.sigma *= group['g3']
 
-        return loss, l, norm_s, group['sigma'], rho, stop
+        return loss, l, self.norm_s, self.sigma, rho, stop
 
 
 class SR2optiml1(SR2optim):
@@ -232,27 +256,28 @@ class SR2optimAndrei(SR2optim):
         self.B = []
         self.current_grads = []
         self.trA2 = 0
+        self.norm_s_sq = 0
+        self.sT_B_s = 0
         super().__init__(*args, **kwargs)
         self.initialize_A_B()
 
-    def copy_params(self):
+    def _copy_params(self):
         self.current_params = []
         self.current_grads = []
         for param in self.param_groups[0]['params']:
             self.current_params.append(deepcopy(param.data))
             self.current_grads.append(deepcopy(param.grad.data))
 
-
     def get_sTy(self):
         sTy = 0
-        i = 0
+        j = 0
         for param in self.param_groups[0]['params']:
-            s = param.data - self.current_params[i].data
-            y = param.grad.data - self.current_grads[i].data
+            s = param.data - self.current_params[j].data
+            y = param.grad.data - self.current_grads[j].data
             flat_s = s.view(-1)
             flat_y = y.view(-1)
             sTy += torch.dot(flat_s, flat_y).item()
-            i += 1
+            j += 1
         return sTy
 
     def initialize_A_B(self):
@@ -263,148 +288,28 @@ class SR2optimAndrei(SR2optim):
     def get_denom(self, i, sigma):
         mask = self.B[i].data > 1e-5
         return self.B[i].data * mask.data + sigma
-
-    def update_B(self, q):
-        i = 0
-        for param in self.param_groups[0]['params']:
-            self.B[i] = torch.add(torch.add(self.B[i], -1), self.A[i], alpha=q, out=self.B[i])
-            i += 1
-
-    def step(self, closure=None):
-        """Performs a single optimization step.
-        Arguments:
-            closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
-        """
-
-        # load parameters
-        group = self.param_groups[0]
-
-        loss = None
-        h_x = None
-        if closure is not None:
-            loss, h_x = closure()
-
-        loss.backward()
-        f_x = loss.item()
-        h_x *= group['lmbda']
-        current_obj = f_x + h_x
-        l = h_x
-
-        # saving the parameters in case the step is rejected
-        self.copy_params()
-
-        phi_x = f_x
-        gts = 0
-        stop = False
-        do_updates = True
-        i = 0
-
+  
+    def additional_initializations(self):
         self.trA2 = 0
-        norm_s = 0
-        norm_s_sq = 0
-        sT_B_s = 0
-
-        for x in group['params']:
-            if x.grad is None:
-                continue
-
-            # Perform weight-decay
-            x.data.mul_(1 - 0.001 * group['weight_decay'])
-
-            grad = x.grad.data
-
-            state = self.state[x]
-            if len(state) == 0:
-                state['s'] = torch.zeros_like(x.data)
-                state['vt'] = torch.zeros_like(grad)
-                # state['precond'] = torch.zeros_like(x.data)
-
-            # Direction with momentum
-            state['vt'].mul_(self.beta).add_(1 - self.beta, grad)
-            flat_v = state['vt'].view(-1)
-
-            # New precond term
-            # state['precond'].mul_(0.9).addcmul_(1 - 0.9, grad, grad)          # exponential moving average precond
-            # denom = state['precond'].sqrt() / (1 + 1e-6)   # sqrt had bias_correction 2
-            # denom.add_(group['sigma'])
-
-            denom = self.get_denom(i, group['sigma'])  # mask(B) + sigma * I
-
-            # Compute the step s
-            state['s'].data = self.get_step(x, state['vt'], denom, group['lmbda'])
-
-            self.A[i] = torch.pow(state['s'].data, 2)
-            self.trA2 += torch.sum(torch.pow(state['s'].data, 4))
-            norm_s += torch.sum(torch.square(state['s'])).item()
-            norm_s_sq += norm_s ** 2
-
-            # phi(x+s) ~= f(x) + grad^T * s
-            flat_s = state['s'].view(-1)
-            gts += torch.dot(flat_v, flat_s).item()
-            sT_B_s += torch.dot(flat_s.data, torch.mul(denom.view(-1), flat_s.data)).item()
-
-            # Update the weights
-            x.data = x.data.add_(state['s'].data)
-            i += 1
-
-        phi_x += gts
-        # f(x+s), h(x+s)
-        fxs, hxs = closure()
-        hxs *= group['lmbda']
-
-        # Rho
-        rho = current_obj - (fxs.item() + hxs)
-        delta_model = current_obj - (phi_x + hxs)
-
-        if delta_model < -1e-4:
-            logging.error('denominator is negatif {} '.format(delta_model))
-            logging.info('current_objectif = {} '.format(current_obj))
-            logging.info('phi = {} '.format(phi_x))
-            logging.info('h(x+s) = {} '.format(hxs))
-            stop = True
-            do_updates = False
-            rho = np.NAN
-
-        elif -1e-4 <= delta_model <= 0:
-            rho = 0
-            self.stop_counter += 1
-            logging.info('denominator of rho is slightly negatif  {} '.format(delta_model))
-            do_updates = False
-        else:
-            rho = (current_obj - fxs - hxs) / delta_model
-            self.stop_counter = 0
-
-        if self.stop_counter > 30:
-            stop = True
-
-        # Updates
-        if do_updates:
-            if rho >= self.param_groups[0]['nu1']:
-                logging.debug('step accepted')
-                loss = fxs
-                l = hxs
-                loss.backward()
-                self.successful_steps += 1
-
-                # gather elements for B update
-                logging.debug('update B')
-                sT_y = self.get_sTy()
-                q = (sT_y + norm_s_sq - sT_B_s) / self.trA2
-
-                # update B := B - I + q*A
-                self.update_B(q)
-            else:
-                # Reject the step
-                logging.debug('step rejected')
-                self.load_params(self.current_params)
-                group['sigma'] *= group['g1']
-                self.failed_steps += 1
-
-            if rho >= self.param_groups[0]['nu2']:
-                group['sigma'] *= group['g3']
-
-        return loss, l, norm_s, group['sigma'], rho, stop
+        self.norm_s_sq = 0
+        self.sT_B_s = 0
+        
+    def cumulate_elements(self, i, s_data, flat_s_data, denom):
+        self.A[i] = torch.pow(s_data, 2)
+        self.trA2 += torch.sum(torch.pow(s_data, 4))
+        self.norm_s_sq += self.norm_s ** 2
+        self.sT_B_s += torch.dot(flat_s_data, torch.mul(denom.view(-1), flat_s_data)).item()
+        
+    def update_precond(self):
+        sT_y = self.get_sTy()
+        q = (sT_y + self.norm_s_sq - self.sT_B_s) / self.trA2
+        
+        # update B := B - I + q*A
+        k = 0
+        for param in self.param_groups[0]['params']:
+            self.B[k] = torch.add(torch.add(self.B[k], -1), self.A[k], alpha=q, out=self.B[k])
+            k += 1
+            
 
 
 class SR2optimAndreil0(SR2optimAndrei, SR2optiml0):
@@ -425,4 +330,5 @@ class SR2optimAndreil12(SR2optimAndrei, SR2optiml12):
 class SR2optimAndreil23(SR2optimAndrei, SR2optiml23):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
 
