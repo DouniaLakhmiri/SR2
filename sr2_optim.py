@@ -249,11 +249,21 @@ class SR2optiml23(SR2optim):
 class SR2optimAdam(SR2optim):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.denom = []
         
     def get_denom(self, i, sigma, grad):
         self.denom.mul_(0.9).addcmul_(1 - 0.9, grad, grad)          # exponential moving average precond
         self.denom.sqrt() / (1 + 1e-6)   # sqrt had bias_correction 2
         self.denom.add_(sigma)
+        
+    def additional_initializations()
+        for x in self.param_groups[0]['params']:
+            if x.grad is None:
+                continue
+
+            state = self.state[x]
+            if len(state) == 0:
+                self.denom = torch.zeros_like(x.data)
 
 
 class SR2optimAndrei(SR2optim):
