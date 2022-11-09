@@ -256,7 +256,7 @@ class SR2optimAdam(SR2optim):
         self.denom.sqrt() / (1 + 1e-6)   # sqrt had bias_correction 2
         self.denom.add_(sigma)
         
-    def additional_initializations()
+    def additional_initializations():
         for x in self.param_groups[0]['params']:
             if x.grad is None:
                 continue
@@ -347,7 +347,6 @@ class SR2optimAndrei(SR2optim):
             self.B[k] = torch.add(torch.add(self.B[k], -1), self.A[k], alpha=q, out=self.B[k])
             k += 1
             
-
 
 class SR2optimAndreil0(SR2optimAndrei, SR2optiml0):
     def __init__(self, *args, **kwargs):
