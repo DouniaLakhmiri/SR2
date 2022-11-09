@@ -264,6 +264,26 @@ class SR2optimAdam(SR2optim):
             state = self.state[x]
             if len(state) == 0:
                 self.denom = torch.zeros_like(x.data)
+                
+                
+class SR2optimAdaml0(SR2optimAdam, SR2optiml0):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class SR2optimAdaml1(SR2optimAdam, SR2optiml1):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class SR2optimAdaml12(SR2optimAdam, SR2optiml12):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class SR2optimAdaml23(SR2optimAdam, SR2optiml23):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class SR2optimAndrei(SR2optim):
