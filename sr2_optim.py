@@ -256,7 +256,7 @@ class SR2optimAdam(SR2optim):
         self.denom.sqrt() / (1 + 1e-6)   # sqrt had bias_correction 2
         self.denom.add_(sigma)
         
-    def additional_initializations():
+    def additional_initializations(self):
         for x in self.param_groups[0]['params']:
             if x.grad is None:
                 continue
