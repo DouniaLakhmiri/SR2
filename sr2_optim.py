@@ -53,7 +53,7 @@ class SR2optim(Optimizer):
     def get_step(self, x, grad, sigma, lmbda):
         raise NotImplementedError
 
-    def get_denom(self, i, sigma, grad):
+    def get_denom(self, i, sigma, grad, precond):
         return self.sigma
     
     def additional_initializations(self):
@@ -111,13 +111,14 @@ class SR2optim(Optimizer):
             if len(state) == 0:
                 state['s'] = torch.zeros_like(x.data)
                 state['vt'] = torch.zeros_like(grad)
+                state['precond'] = torch.zeros_like(x.data)
 
             # Direction with momentum
             state['vt'].mul_(self.beta).add_(1 - self.beta, grad)
             flat_v = state['vt'].view(-1)
 
             # get denominator
-            self.denom = self.get_denom(i, self.sigma, grad)
+            self.get_denom(i, self.sigma, grad, state['precond'])
 
             # Compute the step s
             state['s'].data = self.get_step(x, state['vt'], self.denom, group['lmbda'])  # replace sigma with denom
@@ -251,8 +252,8 @@ class SR2optimAdam(SR2optim):
         super().__init__(*args, **kwargs)
         self.denom = []
         
-    def get_denom(self, i, sigma, grad):
-        self.denom.mul_(0.9).addcmul_(1 - 0.9, grad, grad)          # exponential moving average precond
+    def get_denom(self, i, sigma, grad, precond):
+        self.denom = precond.mul_(0.9).addcmul_(1 - 0.9, grad, grad)          # exponential moving average precond
         self.denom.sqrt() / (1 + 1e-6)   # sqrt had bias_correction 2
         self.denom.add_(sigma)
         
@@ -322,7 +323,7 @@ class SR2optimAndrei(SR2optim):
             self.A.append(torch.ones_like(param.data))
             self.B.append(torch.ones_like(param.data))
 
-    def get_denom(self, i, sigma, grad):
+    def get_denom(self, i, sigma, grad, precond):
         mask = self.B[i].data > 1e-5
         return self.B[i].data * mask.data + sigma
   
