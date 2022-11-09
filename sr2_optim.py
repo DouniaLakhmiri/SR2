@@ -28,6 +28,7 @@ class SR2optim(Optimizer):
         self.stop_counter = 0
         self.beta = beta
         self.norm_s = 0
+        self.denom = None
         self.current_params = []
 
         logging.basicConfig(level=logging.INFO)
@@ -52,11 +53,11 @@ class SR2optim(Optimizer):
     def get_step(self, x, grad, sigma, lmbda):
         raise NotImplementedError
 
-    def get_denom(self, i, sigma):
+    def get_denom(self, i, sigma, grad, precond):
         return self.sigma
     
     def additional_initializations(self):
-        pass
+        self.denom = 0
 
     def cumulate_elements(self, i, s_data, flat_s_data, denom):
         pass
@@ -117,15 +118,10 @@ class SR2optim(Optimizer):
             flat_v = state['vt'].view(-1)
 
             # get denominator
-            denom = self.get_denom(i, self.sigma)
-            
-            # Adam preconditioner
-            # state['precond'].mul_(0.9).addcmul_(1 - 0.9, grad, grad)          # exponential moving average precond
-            # denom = state['precond'].sqrt() / (1 + 1e-6)   # sqrt had bias_correction 2
-            # denom.add_(group['sigma'])
+            self.get_denom(i, self.sigma, grad, state['precond'])
 
             # Compute the step s
-            state['s'].data = self.get_step(x, state['vt'], denom, group['lmbda'])  # replace sigma with denom
+            state['s'].data = self.get_step(x, state['vt'], self.denom, group['lmbda'])  # replace sigma with denom
             self.norm_s += torch.sum(torch.square(state['s'])).item()
 
             # phi(x+s) ~= f(x) + v^T * s
@@ -133,7 +129,7 @@ class SR2optim(Optimizer):
             gts += torch.dot(flat_v, flat_s).item()
             
             # Some versions of SR2 need additional elements
-            self.cumulate_elements(i, state['s'].data, flat_s.data, denom)
+            self.cumulate_elements(i, state['s'].data, flat_s.data, self.denom)
 
             # Update the weights
             x.data = x.data.add_(state['s'].data)
@@ -231,11 +227,13 @@ class SR2optiml12(SR2optim):
         step = torch.where(X > p, s - x.data, torch.where(X < -p, -s - x.data, -x.data))
         return step
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+    
 
 class SR2optiml23(SR2optim):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        
     def get_step(self, x, grad, denom, lmbda):
         g_over_denom = grad / denom
         X = x.data - g_over_denom
@@ -247,6 +245,46 @@ class SR2optiml23(SR2optim):
 
         step = torch.where(X > cond, s - x.data, torch.where(X < -cond, -s - x.data, -x.data))
         return step
+    
+    
+class SR2optimAdam(SR2optim):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.denom = []
+        
+    def get_denom(self, i, sigma, grad, precond):
+        self.denom = precond.mul_(0.9).addcmul_(1 - 0.9, grad, grad)          # exponential moving average precond
+        self.denom.sqrt() / (1 + 1e-6)   # sqrt had bias_correction 2
+        self.denom.add_(sigma)
+        
+    def additional_initializations(self):
+        for x in self.param_groups[0]['params']:
+            if x.grad is None:
+                continue
+
+            state = self.state[x]
+            if len(state) == 0:
+                self.denom = torch.zeros_like(x.data)
+                
+                
+class SR2optimAdaml0(SR2optimAdam, SR2optiml0):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class SR2optimAdaml1(SR2optimAdam, SR2optiml1):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class SR2optimAdaml12(SR2optimAdam, SR2optiml12):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class SR2optimAdaml23(SR2optimAdam, SR2optiml23):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class SR2optimAndrei(SR2optim):
@@ -285,7 +323,7 @@ class SR2optimAndrei(SR2optim):
             self.A.append(torch.ones_like(param.data))
             self.B.append(torch.ones_like(param.data))
 
-    def get_denom(self, i, sigma):
+    def get_denom(self, i, sigma, grad, precond):
         mask = self.B[i].data > 1e-5
         return self.B[i].data * mask.data + sigma
   
@@ -311,7 +349,6 @@ class SR2optimAndrei(SR2optim):
             k += 1
             
 
-
 class SR2optimAndreil0(SR2optimAndrei, SR2optiml0):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -330,5 +367,4 @@ class SR2optimAndreil12(SR2optimAndrei, SR2optiml12):
 class SR2optimAndreil23(SR2optimAndrei, SR2optiml23):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
 
