@@ -80,7 +80,7 @@ class SR2optim(Optimizer):
             do_updates = False
             stop = False
         else:
-            rho = (current_obj - (fxs + hxs)) / delta_model
+            rho = rho_numerator / delta_model
             self.stop_counter = 0
             do_updates = True
             stop = False
