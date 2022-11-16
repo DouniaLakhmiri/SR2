@@ -6,16 +6,16 @@ import logging
 
 
 class SR2optim(Optimizer):
-    """Implementation of SR2 algorithm
+    """Implementation of the SR2 algorithm
     Arguments:
         params (iterable): iterable of parameters to optimize or dicts defining
             parameter groups
     """
 
-    def __init__(self, params, nu1=1e-4, nu2=0.9, g1=1.5, g3=0.5, lmbda=0.001, sigma=0.75, weight_decay=0.2,
-                 beta=0.9):
+    def __init__(self, params, eta1=1e-4, eta2=0.9, g1=1.5, g3=0.5, lmbda=0.001, sigma=0.75, weight_decay=0.2,
+                 beta=0.9, max_successive_rejections=30):
 
-        if not 0.0 <= nu1 <= nu2 < 1.0:
+        if not 0.0 <= eta1 <= eta2 < 1.0:
             raise ValueError("Invalid parameter: 0 <= {} <= {} < 1".format(nu1, nu2))
         if not g1 > 1.0:
             raise ValueError("Invalid g1 parameter: {}".format(g1))
@@ -30,9 +30,10 @@ class SR2optim(Optimizer):
         self.norm_s = 0
         self.denom = None
         self.current_params = []
+        self.max_successive_step_rejections = max_successive_rejections
 
         logging.basicConfig(level=logging.INFO)
-        defaults = dict(nu1=nu1, nu2=nu2, g1=g1, g3=g3, lmbda=lmbda, sigma=sigma, weight_decay=weight_decay)
+        defaults = dict(eta1=eta1, eta2=eta2, g1=g1, g3=g3, lmbda=lmbda, sigma=sigma, weight_decay=weight_decay)
         super(SR2optim, self).__init__(params, defaults)
 
     def __setstate__(self, state):
@@ -64,6 +65,32 @@ class SR2optim(Optimizer):
     
     def update_precond(self):
         pass
+    
+    def assess_decrease(self, delta_model, rho_numerator):
+
+        if delta_model < -1e-4:
+            logging.error('predicted reduction is negative {} '.format(delta_model))
+            stop = True
+            do_updates = False
+            rho = np.NAN
+        elif -1e-4 <= delta_model <= 0:
+            rho = 0
+            self.stop_counter += 1
+            logging.info('predicted reduction is slightly negative  {} '.format(delta_model))
+            do_updates = False
+            stop = False
+        else:
+            rho = (current_obj - (fxs + hxs)) / delta_model
+            self.stop_counter = 0
+            do_updates = True
+            stop = False
+
+        if self.stop_counter > self.max_successive_step_rejections:
+            stop = True
+            do_updates = False
+            
+        return rho, stop, do_updates
+
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -114,7 +141,8 @@ class SR2optim(Optimizer):
                 state['precond'] = torch.zeros_like(x.data)
 
             # Direction with momentum
-            state['vt'].mul_(self.beta).add_(1 - self.beta, grad)
+            if self.beta > 0:
+                state['vt'].mul_(self.beta).add_(1 - self.beta, grad)
             flat_v = state['vt'].view(-1)
 
             # get denominator
@@ -143,27 +171,9 @@ class SR2optim(Optimizer):
 
         # Rho
         delta_model = current_obj - (phi_x + hxs)
-
-        if delta_model < -1e-4:
-            logging.error('denominator is negatif {} '.format(delta_model))
-            logging.info('current_objectif = {} '.format(current_obj))
-            logging.info('phi = {} '.format(phi_x))
-            logging.info('h(x+s) = {} '.format(hxs))
-            stop = True
-            do_updates = False
-            rho = np.NAN
-
-        elif -1e-4 <= delta_model <= 0:
-            rho = 0
-            self.stop_counter += 1
-            logging.info('denominator of rho is slightly negatif  {} '.format(delta_model))
-            do_updates = False
-        else:
-            rho = (current_obj - fxs - hxs) / delta_model
-            self.stop_counter = 0
-
-        if self.stop_counter > 30:
-            stop = True
+        rho_numerator = current_obj - (fxs + hxs)
+        
+        rho, stop, do_updates = self.assess_decrease(delta_model, rho_numerator)
 
         # Updates
         if do_updates:
@@ -173,8 +183,10 @@ class SR2optim(Optimizer):
                 l = hxs
                 loss.backward()
                 self.successful_steps += 1
-                
                 self.update_precond()
+                
+            if rho >= self.param_groups[0]['nu2']:
+                self.sigma *= group['g3']
             else:
                 # Reject the step
                 logging.debug('step rejected')
@@ -182,8 +194,6 @@ class SR2optim(Optimizer):
                 self.sigma *= group['g1']
                 self.failed_steps += 1
 
-            if rho >= self.param_groups[0]['nu2']:
-                self.sigma *= group['g3']
 
         return loss, l, self.norm_s, self.sigma, rho, stop
 
