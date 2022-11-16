@@ -55,7 +55,7 @@ class SR2optim(Optimizer):
         raise NotImplementedError
 
     def get_denom(self, i, sigma, grad, precond):
-        return self.sigma
+        self.denom = self.sigma
     
     def additional_initializations(self):
         self.denom = 0
@@ -143,6 +143,9 @@ class SR2optim(Optimizer):
             # Direction with momentum
             if self.beta > 0:
                 state['vt'].mul_(self.beta).add_(1 - self.beta, grad)
+            else:
+                state['vt'] = grad
+                
             flat_v = state['vt'].view(-1)
 
             # get denominator
