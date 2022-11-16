@@ -177,44 +177,44 @@ sigma = get_sigma0(model)
 # Initialize the optimizer with the given parameters optimizer
 if args.precond == 'andrei':
     if args.reg == 'l0':
-        optimizer = SR2optimAndreil0(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optimAndreil0(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
     elif args.reg == 'l1':
-        optimizer = SR2optimAndreil1(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optimAndreil1(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
     elif args.reg == 'l12':
-        optimizer = SR2optimAndreil12(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optimAndreil12(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
     elif args.reg == 'l23':
-        optimizer = SR2optimAndreil23(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optimAndreil23(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
         
 elif args.precond == 'adam':      
     if args.reg == 'l0':
-        optimizer = SR2optimAdaml0(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optimAdaml0(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
     elif args.reg == 'l1':
-        optimizer = SR2optimAdaml1(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optimAdaml1(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
     elif args.reg == 'l12':
-        optimizer = SR2optimAdaml12(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optimAdaml12(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
     elif args.reg == 'l23':
-        optimizer = SR2optimAdaml23(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optimAdaml23(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
         
 elif args.precond == 'none':
     if args.reg == 'l1':
-        optimizer = SR2optiml1(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optiml1(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
     elif args.reg == 'l0':
-        optimizer = SR2optiml0(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optiml0(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
     elif args.reg == 'l12':
-        optimizer = SR2optiml12(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optiml12(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
     elif args.reg == 'l23':
-        optimizer = SR2optiml23(model.parameters(), nu1=args.eta1, nu2=args.eta2, g1=args.g1, g3=args.g3,
+        optimizer = SR2optiml23(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
 else:
     print('>> Regularization term not supported')
