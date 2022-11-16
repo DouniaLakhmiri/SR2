@@ -180,7 +180,7 @@ class SR2optim(Optimizer):
 
         # Updates
         if do_updates:
-            if rho >= self.param_groups[0]['nu1']:
+            if rho >= self.param_groups[0]['eta1']:
                 logging.debug('step accepted')
                 loss = fxs
                 l = hxs
@@ -188,7 +188,7 @@ class SR2optim(Optimizer):
                 self.successful_steps += 1
                 self.update_precond()
                 
-            if rho >= self.param_groups[0]['nu2']:
+            if rho >= self.param_groups[0]['eta2']:
                 self.sigma *= group['g3']
             else:
                 # Reject the step
