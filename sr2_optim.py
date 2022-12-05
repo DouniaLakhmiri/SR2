@@ -338,7 +338,7 @@ class SR2optimAndrei(SR2optim):
 
     def get_denom(self, i, sigma, grad, precond):
         mask = self.B[i].data > 1e-5
-        return self.B[i].data * mask.data + sigma
+        self.denom = self.B[i].data * mask.data + sigma
   
     def additional_initializations(self):
         self.trA2 = 0
