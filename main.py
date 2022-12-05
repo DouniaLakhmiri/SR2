@@ -222,7 +222,7 @@ else:
 # test_accs = []
 # training_losses = []
 # l_loss = []
-# run_id = 'sr2_r34'
+run_id = 'sr2_r34'
 
 # training
 for epoch in range(args.max_epochs):
