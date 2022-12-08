@@ -52,7 +52,7 @@ class SR2optim(Optimizer):
             i += 1
 
     def get_step(self, x, grad, sigma, lmbda):
-        raise NotImplementedError
+        return -grad/sigma
 
     def get_denom(self, i, sigma, grad, precond):
         self.denom = self.sigma
@@ -187,16 +187,16 @@ class SR2optim(Optimizer):
                 loss.backward()
                 self.successful_steps += 1
                 self.update_precond()
-                
-            if rho >= self.param_groups[0]['eta2']:
-                self.sigma *= group['g3']
+
             else:
                 # Reject the step
                 logging.debug('step rejected')
                 self._load_params(self.current_params)
                 self.sigma *= group['g1']
                 self.failed_steps += 1
-
+                
+            if rho >= self.param_groups[0]['eta2']:
+                self.sigma *= group['g3']
 
         return loss, l, self.norm_s, self.sigma, rho, stop
 
