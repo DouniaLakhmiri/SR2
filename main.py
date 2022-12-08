@@ -188,6 +188,8 @@ if args.precond == 'andrei':
     elif args.reg == 'l23':
         optimizer = SR2optimAndreil23(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
+    else:
+        print('>> Regularization term not supported')
         
 elif args.precond == 'adam':      
     if args.reg == 'l0':
@@ -202,6 +204,8 @@ elif args.precond == 'adam':
     elif args.reg == 'l23':
         optimizer = SR2optimAdaml23(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
+    else:
+        print('>> Regularization term not supported')
         
 elif args.precond == 'none':
     if args.reg == 'l1':
@@ -216,8 +220,13 @@ elif args.precond == 'none':
     elif args.reg == 'l23':
         optimizer = SR2optiml23(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
                            lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
+    elif args.reg == 'none':
+        optimizer = SR2optim(model.parameters(), eta1=args.eta1, eta2=args.eta2, g1=args.g1, g3=args.g3,
+                           lmbda=args.lam, sigma=sigma, weight_decay=args.wd, beta=args.beta)
+    else:
+        print('>> Regularization term not supported')
 else:
-    print('>> Regularization term not supported')
+    print('>> Preconditionner term not supported')
 
 # test_accs = []
 # training_losses = []
